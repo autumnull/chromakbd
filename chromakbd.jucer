@@ -1,15 +1,19 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <JUCERPROJECT id="yD0Kwc" name="chromakbd" projectType="guiapp" useAppConfig="0"
-              addUsingNamespaceToJuceHeader="0" jucerFormatVersion="1" displaySplashScreen="1">
+              jucerFormatVersion="1" displaySplashScreen="1">
   <MAINGROUP id="TeQ3Ox" name="chromakbd">
     <GROUP id="{7577DB2D-A173-4FD4-A717-57583BE4C05B}" name="Source">
-      <FILE id="TCoR7H" name="SineWaveVoice.h" compile="0" resource="0" file="Source/SineWaveVoice.h"/>
+      <FILE id="vKujjR" name="ChromaKeyboard.cpp" compile="1" resource="0"
+            file="Source/ChromaKeyboard.cpp"/>
+      <FILE id="nAkrjz" name="ChromaKeyboard.h" compile="0" resource="0"
+            file="Source/ChromaKeyboard.h"/>
       <FILE id="sY4A4c" name="Main.cpp" compile="1" resource="0" file="Source/Main.cpp"/>
       <FILE id="O0slwn" name="MainComponent.h" compile="0" resource="0" file="Source/MainComponent.h"/>
+      <FILE id="uqGeDD" name="SineWaveSound.h" compile="0" resource="0" file="Source/SineWaveSound.h"/>
+      <FILE id="TCoR7H" name="SineWaveVoice.h" compile="0" resource="0" file="Source/SineWaveVoice.h"/>
       <FILE id="Jb5iPy" name="SynthAudioSource.h" compile="0" resource="0"
             file="Source/SynthAudioSource.h"/>
-      <FILE id="uqGeDD" name="SineWaveSound.h" compile="0" resource="0" file="Source/SineWaveSound.h"/>
     </GROUP>
   </MAINGROUP>
   <JUCEOPTIONS JUCE_STRICT_REFCOUNTEDPOINTER="1" JUCE_WEB_BROWSER="0"/>

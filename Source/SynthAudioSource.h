@@ -6,10 +6,10 @@
 
 
 class SynthAudioSource :
-    public juce::AudioSource
+    public AudioSource
 {
 public:
-    SynthAudioSource (juce::MidiKeyboardState& keyState)
+    SynthAudioSource (MidiKeyboardState& keyState)
         : keyboardState (keyState)
     {
         for (auto i = 0; i < 4; i++) {
@@ -34,11 +34,11 @@ public:
 
     }
 
-    void getNextAudioBlock (const juce::AudioSourceChannelInfo& bufferToFill) override
+    void getNextAudioBlock (const AudioSourceChannelInfo& bufferToFill) override
     {
         bufferToFill.clearActiveBufferRegion();
 
-        juce::MidiBuffer incomingMidi;
+        MidiBuffer incomingMidi;
         keyboardState.processNextMidiBuffer(
             incomingMidi,
             bufferToFill.startSample,
@@ -55,6 +55,6 @@ public:
     }
 
 private:
-    juce::MidiKeyboardState& keyboardState;
-    juce::Synthesiser synth;
+    MidiKeyboardState& keyboardState;
+    Synthesiser synth;
 };

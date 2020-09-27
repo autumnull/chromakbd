@@ -6,13 +6,13 @@
 
 
 class MainComponent :
-    public  juce::AudioAppComponent,
-    private juce::Timer
+    public  AudioAppComponent,
+    private Timer
 {
 public:
     MainComponent() :
         synthAudioSource(keyboardState),
-        keyboardComponent(keyboardState, ChromaticKeyboardComponent::horizontalKeyboard)
+        keyboardComponent(keyboardState, ChromaKeyboard::horizontal)
     {
         addAndMakeVisible(keyboardComponent);
         setAudioChannels(0, 2);
@@ -33,7 +33,7 @@ public:
         synthAudioSource.prepareToPlay (samplesPerBlockExpected, sampleRate);
     }
 
-    void getNextAudioBlock (const juce::AudioSourceChannelInfo& bufferToFill) override
+    void getNextAudioBlock (const AudioSourceChannelInfo& bufferToFill) override
     {
         synthAudioSource.getNextAudioBlock (bufferToFill);
     }
@@ -45,9 +45,9 @@ public:
 
     /* Component */
 
-    void paint (juce::Graphics& g) override
+    void paint (Graphics& g) override
     {
-        g.fillAll (getLookAndFeel().findColour (juce::ResizableWindow::backgroundColourId));
+        g.fillAll (getLookAndFeel().findColour (ResizableWindow::backgroundColourId));
     }
 
     void resized() override
@@ -65,9 +65,9 @@ private:
         stopTimer();
     }
 
-    juce::MidiKeyboardState keyboardState;
+    MidiKeyboardState keyboardState;
     SynthAudioSource synthAudioSource;
-    ChromaticKeyboardComponent keyboardComponent;
+    ChromaKeyboard keyboardComponent;
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MainComponent)
 };
