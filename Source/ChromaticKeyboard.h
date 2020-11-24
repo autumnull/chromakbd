@@ -33,7 +33,7 @@ public:
 
         bool guitarMode = true;
 
-        char layout[] = "zxcvbnm,./asdfghjkl;qwertyuiop1234567890";
+        char layout[] = ";qjkxbmwvzaoeuidhtns',.pyfgcrl123456789*";
         if (!guitarMode) {
             int note = 0;
             for (char c : layout)
@@ -749,19 +749,19 @@ private:
     int octaveSize = 13;
 
     juce::uint32 noteColours[13] = {
-        0xFFF00000,
-        0xFFFFAE00,
-        0xFFFFE700,
-        0xFFBAFF00,
-        0xFF00F000,
-        0xFF00DDB8,
-        0xFF00DEFF,
-        0xFF009FFF,
-        0xFF5600E9,
-        0xFF9B00FF,
-        0xFFE100EB,
-        0xFFFF00AD,
-        0xFFF00000
+		0xFFFF0000,
+		0xFFFF7300,
+		0xFFFFB900,
+		0xFFFFFF00,
+		0xFFBAE800,
+		0xFF00EB7E,
+		0xFF00B3FF,
+		0xFF0077FF,
+		0xFF6C00EA,
+		0xFF9B00FF,
+		0xFFCE00EB,
+		0xFFFF00AD,
+		0xFFF00000
     };
 
     juce::Colour getNoteColour(int note, int base)
