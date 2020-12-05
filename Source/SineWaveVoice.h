@@ -3,12 +3,12 @@
 #include <JuceHeader.h>
 
 class SineWaveVoice :
-    public juce::SynthesiserVoice
+    public SynthesiserVoice
 {
 public:
     SineWaveVoice() {}
 
-    bool canPlaySound (juce::SynthesiserSound* sound) override
+    bool canPlaySound (SynthesiserSound* sound) override
     {
         return dynamic_cast<SineWaveSound*> (sound) != nullptr;
     }
@@ -16,7 +16,7 @@ public:
     void startNote (
         int midiNoteNumber,
         float velocity,
-        juce::SynthesiserSound*,
+        SynthesiserSound*,
         int currentPitchWheelPosition
     ) override
     {
@@ -24,10 +24,10 @@ public:
         level = velocity * 0.15;
         tailOff = 0.0;
 
-        auto cyclesPerSecond = juce::MidiMessage::getMidiNoteInHertz (midiNoteNumber);
+        auto cyclesPerSecond = MidiMessage::getMidiNoteInHertz (midiNoteNumber);
         auto cyclesPerSample = cyclesPerSecond / getSampleRate();
 
-        angleDelta = cyclesPerSample * 2.0 * juce::MathConstants<double>::pi;
+        angleDelta = cyclesPerSample * 2.0 * MathConstants<double>::pi;
     }
 
     void stopNote (float velocity, bool allowTailOff) override
@@ -48,7 +48,7 @@ public:
     void controllerMoved (int, int) override {}
 
     void renderNextBlock (
-        juce::AudioSampleBuffer& outputBuffer,
+        AudioSampleBuffer& outputBuffer,
         int startSample,
         int numSamples
     ) override

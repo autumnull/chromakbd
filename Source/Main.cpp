@@ -4,16 +4,16 @@
 
 
 class kbdApplication :
-    public juce::JUCEApplication
+    public JUCEApplication
 {
 public:
     kbdApplication() {}
 
-    const juce::String getApplicationName() override       { return ProjectInfo::projectName; }
-    const juce::String getApplicationVersion() override    { return ProjectInfo::versionString; }
+    const String getApplicationName() override       { return ProjectInfo::projectName; }
+    const String getApplicationVersion() override    { return ProjectInfo::versionString; }
     bool moreThanOneInstanceAllowed() override             { return true; }
 
-    void initialise (const juce::String& commandLine) override
+    void initialise (const String& commandLine) override
     {
         mainWindow.reset (new MainWindow (getApplicationName()));
     }
@@ -30,20 +30,20 @@ public:
         quit();
     }
 
-    void anotherInstanceStarted (const juce::String& commandLine) override {}
+    void anotherInstanceStarted (const String& commandLine) override {}
 
     /*
         This class implements the desktop window that contains an instance of
         our MainComponent class.
     */
     class MainWindow :
-        public juce::DocumentWindow
+        public DocumentWindow
     {
     public:
-        MainWindow (juce::String name) :
+        MainWindow (String name) :
             DocumentWindow (
                 name,
-                juce::Desktop::getInstance().getDefaultLookAndFeel().findColour(juce::ResizableWindow::backgroundColourId),
+                Desktop::getInstance().getDefaultLookAndFeel().findColour(ResizableWindow::backgroundColourId),
                 DocumentWindow::allButtons
             )
         {

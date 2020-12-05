@@ -3,7 +3,7 @@
 #include <JuceHeader.h>
 
 class SineWaveSound :
-    public juce::SynthesiserSound
+    public SynthesiserSound
 {
 public:
     SineWaveSound() {}
