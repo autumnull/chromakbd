@@ -1,23 +1,21 @@
 #include "ChromaKeyboard.h"
 
-class ChromaKeyboard_UpDownButton :
+class ChromaKeyboard_ScrollButton :
 	public Button
 {
 public:
-	ChromaKeyboard_UpDownButton (ChromaKeyboard& c, int d) :
+	ChromaKeyboard_ScrollButton (ChromaKeyboard& c, int d) :
 		Button ({}), owner (c), delta (d)
 	{ }
 
 	void clicked()
 	{
 		auto note = owner.getLowestVisibleKey();
-
 		if (delta < 0)
-			note = (note - 1) / owner.octaveSize;
+			note = (note - 1)/owner.octaveSize;
 		else
-			note = note / owner.octaveSize + 1;
-
-		owner.setLowestVisibleKey (note * owner.octaveSize);
+			note = note/owner.octaveSize + 1;
+		owner.setLowestVisibleKey(note*owner.octaveSize);
 	}
 
 	using Button::clicked;
@@ -27,13 +25,13 @@ public:
 		bool shouldDrawButtonAsHighlighted,
 		bool shouldDrawButtonAsDown )
 	{
-		owner.drawUpDownButton (
+		owner.drawScrollButton(
 			g,
 			getWidth(),
 			getHeight(),
 			shouldDrawButtonAsHighlighted,
 			shouldDrawButtonAsDown,
-			delta > 0
+			delta>0
 		);
 	}
 
@@ -41,56 +39,36 @@ private:
 	ChromaKeyboard& owner;
 	const int delta;
 
-	JUCE_DECLARE_NON_COPYABLE (ChromaKeyboard_UpDownButton)
+	JUCE_DECLARE_NON_COPYABLE(ChromaKeyboard_ScrollButton)
 };
-
-// TODO: change note state array to int counter array to allow multiple pressers
-
-// TODO: only repaint required notes
-
-// TODO add methods to change options like octave size, guitar mode
 
 ChromaKeyboard::ChromaKeyboard(MidiKeyboardState& s, ChromaKeyboard::Orientation o) :
 		state(s),
 		orientation(o)
 {
-	scrollDown.reset (new ChromaKeyboard_UpDownButton (*this, -1));
-	scrollUp  .reset (new ChromaKeyboard_UpDownButton (*this, 1));
+	addAndMakeVisible(layoutSelector);
+	layoutSelector.setWantsKeyboardFocus(false);	// otherwise takes up/down buttons
+	layoutSelector.addItemList(layoutNames, 1); // offset must be > 0
+	layoutSelector.onChange = [this] {
+	  setLayout((Layout)layoutSelector.getSelectedId());
+	};
+	layoutSelector.setSelectedId(1);
+	addAndMakeVisible(layoutSelectorLabel);
+	layoutSelectorLabel.attachToComponent(&layoutSelector, true);
 
-	addChildComponent (scrollDown.get());
-	addChildComponent (scrollUp.get());
+	scrollDown.reset(new ChromaKeyboard_ScrollButton (*this, -1));
+	scrollUp  .reset(new ChromaKeyboard_ScrollButton (*this, 1));
+	addChildComponent(scrollDown.get());
+	addChildComponent(scrollUp.get());
 
-	octaveSize = 12;
-
-	bool guitarMode = true;
-	char layout[] = ";qjkxbmwvzaoeuidhtns',.pyfgcrl123456789*";
-	if (guitarMode) {
-		for (int row = 0; row < 4; row++) {
-			for (int fret = 0; fret < 10; fret++) {
-				char c = layout[row*10 + fret];
-				int note = row*5 + fret;
-				keycodeState.set(c, KeyPress::isKeyCurrentlyDown(c));
-				mapKeycodeToKey(c, note);
-			}
-		}
-	}
-	else {
-		int note = 0;
-		for (char c : layout) {
-			keycodeState.set(c, KeyPress::isKeyCurrentlyDown(c));
-			mapKeycodeToKey(c, note++);
-		}
-	}
-
-	mouseOverNotes.insertMultiple(0, -1, 32);
-	mouseDownNotes.insertMultiple(0, -1, 32);
+	resetKeycodeStates();
 
 	colourChanged();
 	setWantsKeyboardFocus(true);	// enables recieving keypresses
 
 	state.addListener(this);
 
-	startTimerHz(30);
+	startTimerHz(40);
 }
 
 ChromaKeyboard::~ChromaKeyboard()
@@ -98,13 +76,13 @@ ChromaKeyboard::~ChromaKeyboard()
 	state.removeListener (this);
 }
 
-void ChromaKeyboard::setVelocity (float v, bool useMousePosition)
+void ChromaKeyboard::setVelocity(float v, bool useMousePosition)
 {
 	velocity = jlimit (0.0f, 1.0f, v);
 	useMousePositionForVelocity = useMousePosition;
 }
 
-void ChromaKeyboard::setMidiChannel (int midiChannelNumber)
+void ChromaKeyboard::setMidiChannel(int midiChannelNumber)
 {
 	jassert (0 < midiChannelNumber && midiChannelNumber <= 16);
 	if (midiChannel != midiChannelNumber) {
@@ -115,7 +93,7 @@ void ChromaKeyboard::setMidiChannel (int midiChannelNumber)
 
 int ChromaKeyboard::getMidiChannel() const noexcept { return midiChannel; }
 
-void ChromaKeyboard::setMidiChannelsToDisplay (int midiChannelMask)
+void ChromaKeyboard::setMidiChannelsToDisplay(int midiChannelMask)
 {
 	midiInChannelMask = midiChannelMask;
 	shouldCheckState = true;
@@ -123,7 +101,7 @@ void ChromaKeyboard::setMidiChannelsToDisplay (int midiChannelMask)
 
 int ChromaKeyboard::getMidiChannelsToDisplay() const noexcept { return midiInChannelMask; }
 
-void ChromaKeyboard::setKeyWidth (float widthInPixels)
+void ChromaKeyboard::setKeyWidth(float widthInPixels)
 {
 	jassert (widthInPixels > 0);
 	// Prevent infinite recursion if the width is being computed in a 'resized()' call-back
@@ -135,7 +113,7 @@ void ChromaKeyboard::setKeyWidth (float widthInPixels)
 
 float ChromaKeyboard::getKeyWidth() const noexcept { return keyWidth; }
 
-void ChromaKeyboard::setScrollButtonWidth (int widthInPixels)
+void ChromaKeyboard::setScrollButtonWidth(int widthInPixels)
 {
 	jassert (widthInPixels > 0);
 	if (scrollButtonWidth != widthInPixels) {
@@ -146,7 +124,7 @@ void ChromaKeyboard::setScrollButtonWidth (int widthInPixels)
 
 int ChromaKeyboard::getScrollButtonWidth() const noexcept { return scrollButtonWidth; }
 
-void ChromaKeyboard::setOrientation (ChromaKeyboard::Orientation newOrientation)
+void ChromaKeyboard::setOrientation(ChromaKeyboard::Orientation newOrientation)
 {
 	if (orientation != newOrientation) {
 		orientation = newOrientation;
@@ -156,16 +134,16 @@ void ChromaKeyboard::setOrientation (ChromaKeyboard::Orientation newOrientation)
 
 ChromaKeyboard::Orientation ChromaKeyboard::getOrientation() const noexcept { return orientation; }
 
-void ChromaKeyboard::setAvailableRange (int lowestNote, int highestNote)
+void ChromaKeyboard::setAvailableRange(int lowestNote, int highestNote)
 {
-	jassert (lowestNote >= 0 && lowestNote <= 127);
-	jassert (highestNote >= 0 && highestNote <= 127);
+	jassert (0 <= lowestNote  && lowestNote  < 128);
+	jassert (0 <= highestNote && highestNote < 128);
 	jassert (lowestNote <= highestNote);
 
 	if (rangeStart != lowestNote || rangeEnd != highestNote) {
 		rangeStart = jlimit (0, 127, lowestNote);
 		rangeEnd = jlimit (0, 127, highestNote);
-		firstKey = jlimit ((float) rangeStart, (float) rangeEnd, firstKey);
+		lowestVisibleKey = jlimit ((float) rangeStart, (float) rangeEnd, (float) lowestVisibleKey);
 		resized();
 	}
 }
@@ -174,14 +152,14 @@ int ChromaKeyboard::getRangeStart() const noexcept { return rangeStart; }
 
 int ChromaKeyboard::getRangeEnd() const noexcept { return rangeEnd; }
 
-void ChromaKeyboard::setLowestVisibleKey (int noteNumber)
+void ChromaKeyboard::setLowestVisibleKey(int noteNumber)
 {
 	setLowestVisibleKeyFloat ((float) noteNumber);
 }
 
-int ChromaKeyboard::getLowestVisibleKey() const noexcept { return (int) firstKey; }
+int ChromaKeyboard::getLowestVisibleKey() const noexcept { return (int) lowestVisibleKey; }
 
-void ChromaKeyboard::setScrollButtonsVisible (bool newCanScroll)
+void ChromaKeyboard::setScrollButtonsVisible(bool newCanScroll)
 {
 	if (canScroll != newCanScroll) {
 		canScroll = newCanScroll;
@@ -189,7 +167,7 @@ void ChromaKeyboard::setScrollButtonsVisible (bool newCanScroll)
 	}
 }
 
-float ChromaKeyboard::getKeyStartPosition (int midiNoteNumber) const
+float ChromaKeyboard::getKeyStartPosition(int midiNoteNumber) const
 {
 	return getKeyPos(midiNoteNumber).getStart();
 }
@@ -199,7 +177,7 @@ float ChromaKeyboard::getTotalKeyboardWidth() const noexcept
 	return getKeyPos(rangeEnd).getEnd();
 }
 
-int ChromaKeyboard::getNoteAtPosition (Point<float> position)
+int ChromaKeyboard::getNoteAtPosition(Point<float> position)
 {
 	float v;
 	return xyToNote (position, v);
@@ -208,43 +186,101 @@ int ChromaKeyboard::getNoteAtPosition (Point<float> position)
 void ChromaKeyboard::clearKeyMappings()
 {
 	resetAnyKeysInUse();
-	keycodeToMidiKey.clear();
+	keycodeToKey.clear();
 }
 
-void ChromaKeyboard::mapKeycodeToKey (int keycode, int midiNoteOffsetFromC)
+void ChromaKeyboard::mapKeycodeToMidiKey(int keycode, int midiKey)
 {
-	keycodeToMidiKey.set(keycode, midiNoteOffsetFromC);
+	if (rangeStart <= midiKey && midiKey <= rangeEnd)
+		keycodeToKey.set(keycode, midiKey);
+	else
+		unmapKeycode(keycode);
 }
 
-void ChromaKeyboard::unmapKeycode (int keycode)
+void ChromaKeyboard::unmapKeycode(int keycode)
 {
-	keycodeToMidiKey.remove(keycode);
+	keycodeToKey.remove(keycode);
 }
 
-void ChromaKeyboard::setKeyPressBaseNote (int newBaseNote)
+void ChromaKeyboard::setKeyMapBase(int newBaseNote)
 {
 	jassert (newBaseNote >= 0 && newBaseNote < 128);
-	keyMappingBase = newBaseNote;
+	keyMapBase = newBaseNote;
+	setLayout(currentLayout);
+}
+
+void ChromaKeyboard::shiftKeyMapBase(int offset)
+{
+	setKeyMapBase(keyMapBase+offset);
+}
+
+void ChromaKeyboard::setLayout(Layout newLayout)
+{
+	if (newLayout != (Layout)layoutSelector.getSelectedId())
+		layoutSelector.setSelectedId((int)newLayout);
+	int xStep, yStep;
+	switch (newLayout)
+	{
+	case linear:
+		xStep = 1, yStep = 10;
+		break;
+	case guitar:
+		xStep = 1, yStep = 5;
+		break;
+	case organ:
+		setOrganLayout();
+		return;
+	case harpejji:
+		xStep = 2, yStep = 1;
+		break;
+	case hexagonal:
+		xStep = 4, yStep = 3;
+		break;
+	default:
+		return;
+	}
+	clearKeyMappings();
+	for (int jRow = 0; jRow < 4; jRow++) {
+		for (int jCol = 0; jCol < 10; jCol++) {
+			char c = kbdString[jRow*10 + jCol];
+			int midiKey = keyMapBase + jCol*xStep + jRow*yStep;
+			mapKeycodeToMidiKey(c, midiKey);
+		}
+	}
+	currentLayout = newLayout;
+}
+
+ChromaKeyboard::Layout ChromaKeyboard::getLayout()
+{
+	return currentLayout;
+}
+
+int ChromaKeyboard::getOctaveSize() const
+{
+	return octaveSize;
+}
+void ChromaKeyboard::setOctaveSize(int newSize)
+{
+	octaveSize = newSize;
+	repaint();
 }
 
 /*
  * Component
  */
 
-void ChromaKeyboard::paint (Graphics& graphics)
+void ChromaKeyboard::paint(Graphics& g)
 {
-	graphics.fillAll (findColour (whiteNoteColourId));
-
 	auto lineColour = Colour(0x55000000);
-	auto textColour = findColour (textLabelColourId);
+	auto textColour = Colour(0xffFFFFFF);
 	for (float jNote = 0; jNote < 128; jNote ++) {
 		auto noteColour = getNoteColour(jNote, octaveSize);
 			drawKey (
 				jNote,
-				graphics,
-				getRectangleForKey (jNote),
-				state.isNoteOnForChannels (midiInChannelMask, jNote),
-				mouseOverNotes.contains (jNote),
+				g,
+				getRectangleForKey(jNote),
+				state.isNoteOnForChannels(midiInChannelMask, jNote),
+				keyHovered == jNote,
 				noteColour,
 				lineColour,
 				textColour);
@@ -255,18 +291,18 @@ void ChromaKeyboard::paint (Graphics& graphics)
 
 	auto x = getKeyPos(rangeEnd).getEnd();
 
-	graphics.setColour(lineColour);
+	g.setColour(lineColour);
 
 	// Line at the bottom of keys
 	switch (orientation) {
 		case horizontal:
-			graphics.fillRect(0.0f, height - 1.0f, x, 1.0f);
+			g.fillRect(0.0f, height - 1.0f, x, 1.0f);
 			break;
 		case verticalFacingLeft:
-			graphics.fillRect(0.0f, 0.0f, 1.0f, x);
+			g.fillRect(0.0f, 0.0f, 1.0f, x);
 			break;
 		case verticalFacingRight:
-			graphics.fillRect(width - 1.0f, 0.0f, 1.0f, x);
+			g.fillRect(width - 1.0f, 0.0f, 1.0f, x);
 			break;
 		default:
 			break;
@@ -275,152 +311,179 @@ void ChromaKeyboard::paint (Graphics& graphics)
 
 void ChromaKeyboard::resized()
 {
-	auto w = getWidth();
-	auto h = getHeight();
+	layoutSelector.setBounds(64, 0, 128, optionBarHeight);
+
+	float w = getWidth();
+	float h = getHeight() - optionBarHeight;
 
 	if (w > 0 && h > 0) {
 		if (orientation != horizontal)
 			std::swap (w, h);
 
-		auto kx2 = getKeyPos (rangeEnd).getEnd();
-		if ((int) firstKey != rangeStart) {
-			auto kx1 = getKeyPos (rangeStart).getStart();
+		auto kx2 = getKeyPos(rangeEnd).getEnd();
+		if ((int) lowestVisibleKey != rangeStart) {
+			auto kx1 = getKeyPos(rangeStart).getStart();
 			if (kx2 - kx1 <= w) {
-				firstKey = (float) rangeStart;
+				lowestVisibleKey = (float) rangeStart;
 				sendChangeMessage();
 				repaint();
 			}
 		}
 
-		scrollDown->setVisible (canScroll && firstKey > (float) rangeStart);
+		scrollDown->setVisible(canScroll && lowestVisibleKey > (float) rangeStart);
 		xOffset = 0;
 		if (canScroll) {
-			auto scrollButtonW = jmin (scrollButtonWidth, w / 2);
+			auto scrollButtonW = jmin(scrollButtonWidth, w / 2);
 			auto r = getLocalBounds();
 
 			if (orientation == horizontal) {
-				scrollDown->setBounds (r.removeFromLeft  (scrollButtonW));
-				scrollUp  ->setBounds (r.removeFromRight (scrollButtonW));
+				r.removeFromTop(optionBarHeight);
+				scrollDown->setBounds(r.removeFromLeft  (scrollButtonW));
+				scrollUp  ->setBounds(r.removeFromRight (scrollButtonW));
 			}
 			else if (orientation == verticalFacingLeft) {
-				scrollDown->setBounds (r.removeFromTop    (scrollButtonW));
-				scrollUp  ->setBounds (r.removeFromBottom (scrollButtonW));
+				r.removeFromRight(optionBarHeight);
+				scrollDown->setBounds(r.removeFromTop    (scrollButtonW));
+				scrollUp  ->setBounds(r.removeFromBottom (scrollButtonW));
 			}
 			else {
-				scrollDown->setBounds (r.removeFromBottom (scrollButtonW));
-				scrollUp  ->setBounds (r.removeFromTop    (scrollButtonW));
+				r.removeFromLeft(optionBarHeight);
+				scrollDown->setBounds(r.removeFromBottom (scrollButtonW));
+				scrollUp  ->setBounds(r.removeFromTop    (scrollButtonW));
 			}
 
-			auto endOfLastKey = getKeyPos (rangeEnd).getEnd();
+			auto endOfLastKey = getKeyPos(rangeEnd).getEnd();
 
 			float mousePositionVelocity;
 			auto spaceAvailable = w;
-			auto lastStartKey = remappedXYToNote ({ endOfLastKey - spaceAvailable, 0 }, mousePositionVelocity) + 1;
+			auto lastStartKey = remappedXYToNote({ endOfLastKey - spaceAvailable, 0 }, mousePositionVelocity) + 1;
 
-			if (lastStartKey >= 0 && ((int) firstKey) > lastStartKey) {
-				firstKey = (float) jlimit (rangeStart, rangeEnd, lastStartKey);
+			if (lastStartKey >= 0 && ((int) lowestVisibleKey) > lastStartKey) {
+				lowestVisibleKey = (float) jlimit(rangeStart, rangeEnd, lastStartKey);
 				sendChangeMessage();
 			}
-			xOffset = getKeyPos ((int) firstKey).getStart();
+			xOffset = getKeyPos((int) lowestVisibleKey).getStart();
 		}
 		else {
-			firstKey = (float) rangeStart;
+			lowestVisibleKey = (float) rangeStart;
 		}
 
-		scrollUp->setVisible (canScroll && getKeyPos (rangeEnd).getStart() > w);
+		scrollUp->setVisible(canScroll && getKeyPos(rangeEnd).getStart() > w);
 		repaint();
 	}
 }
 
-void ChromaKeyboard::mouseMove (const MouseEvent& e)
+void ChromaKeyboard::mouseMove(const MouseEvent& e)
 {
-	updateNoteUnderMouse (e, false);
+	updateNoteUnderMouse(e.position, false);
 }
 
-void ChromaKeyboard::mouseDrag (const MouseEvent& e)
+void ChromaKeyboard::mouseDrag(const MouseEvent& e)
 {
 	float mousePositionVelocity;
-	auto newNote = xyToNote (e.position, mousePositionVelocity);
+	auto newNote = xyToNote(e.position, mousePositionVelocity);
 
-	updateNoteUnderMouse (e, true);
+	updateNoteUnderMouse(e.position, true);
 }
 
-void ChromaKeyboard::mouseDown (const MouseEvent& e)
+void ChromaKeyboard::mouseDown(const MouseEvent& e)
 {
 	float mousePositionVelocity;
-	auto newNote = xyToNote (e.position, mousePositionVelocity);
+	auto newNote = xyToNote(e.position, mousePositionVelocity);
 
-	if (newNote >= 0 && mouseDownOnKey (newNote, e))
-		updateNoteUnderMouse (e, true);
+	if (newNote >= 0 && mouseDownOnKey(newNote, e)) {
+		updateNoteUnderMouse(e.position, true);
+	}
 }
 
 
-void ChromaKeyboard::mouseUp (const MouseEvent& e)
+void ChromaKeyboard::mouseUp(const MouseEvent& e)
 {
-	updateNoteUnderMouse (e, false);
+	updateNoteUnderMouse(e.position, false);
 
 	float mousePositionVelocity;
-	auto note = xyToNote (e.position, mousePositionVelocity);
+	auto note = xyToNote(e.position, mousePositionVelocity);
 
 	if (note >= 0)
-		mouseUpOnKey (note, e);
+		mouseUpOnKey(note, e);
 }
 
-void ChromaKeyboard::mouseEnter (const MouseEvent& e)
+void ChromaKeyboard::mouseEnter(const MouseEvent& e)
 {
-	updateNoteUnderMouse (e, false);
+	updateNoteUnderMouse(e.position, false);
 }
 
-void ChromaKeyboard::mouseExit (const MouseEvent& e)
+void ChromaKeyboard::mouseExit(const MouseEvent& e)
 {
-	updateNoteUnderMouse (e, false);
+	updateNoteUnderMouse(e.position, false);
 }
 
-void ChromaKeyboard::mouseWheelMove (const MouseEvent& e, const MouseWheelDetails& wheel)
+void ChromaKeyboard::mouseWheelMove(const MouseEvent& e, const MouseWheelDetails& wheel)
 {
 	auto amount = (orientation == horizontal && wheel.deltaX != 0)
 		? wheel.deltaX : (
 			orientation == verticalFacingLeft
 			? wheel.deltaY : -wheel.deltaY
 		);
-
-	setLowestVisibleKeyFloat (firstKey - amount * keyWidth);
+	setLowestVisibleKeyFloat(lowestVisibleKey - amount * keyWidth);
 }
 
 void ChromaKeyboard::colourChanged()
 {
-	setOpaque(findColour(whiteNoteColourId).isOpaque());
+	setOpaque(true);
 	repaint();
 }
 
-// called when a physical key is pressed
-bool ChromaKeyboard::keyPressed (const KeyPress& keypress)
+// called when a physical key is pressed or held
+bool ChromaKeyboard::keyPressed(const KeyPress& keypress)
 {
-	return keycodeToMidiKey.contains(keypress.getKeyCode());
+	int keycode = keypress.getKeyCode();
+	if (keycode == KeyPress::escapeKey) {
+		resetAnyKeysInUse();
+		return true;
+	} else if (keycode == KeyPress::upKey) {
+		shiftKeyMapBase(1);
+	} else if (keycode == KeyPress::downKey) {
+		shiftKeyMapBase(-1);
+	} else if (keycode == KeyPress::pageUpKey) {
+		shiftKeyMapBase(octaveSize);
+	} else if (keycode == KeyPress::pageDownKey) {
+		shiftKeyMapBase(-octaveSize);
+	}
+	return keycodeToKey.contains(keycode);
 }
 
-// called when a physical key state changes
-bool ChromaKeyboard::keyStateChanged (bool isKeyDown)
+// called when a keycode is pressed, held or released
+bool ChromaKeyboard::keyStateChanged(bool)
 {
-	char keycode = findKeycodeChanged();
-	if (!keycode)
-		return false;
-
-	int midiKey = keyMappingBase + keycodeToMidiKey.getReference(keycode);
-	if (isKeyDown) {
-		if (midiKeysPressed[midiKey] == 0)
-			state.noteOn(midiChannel, midiKey, velocity);
-		midiKeysPressed.getReference(midiKey)++;
-	} else {
-		midiKeysPressed.getReference(midiKey)--;
-		if (midiKeysPressed[midiKey] == 0)
-			state.noteOff(midiChannel, midiKey, velocity);
+	for (int jKey = 0; jKey < 256; jKey++) {
+		bool isPressed = KeyPress::isKeyCurrentlyDown(jKey);
+		if (keycodeStates[jKey] != isPressed &&
+			keycodeToKey.contains(jKey)
+		) {
+			int midiKey = keycodeToKey.getReference(jKey);
+			midiKeysPressed.getLock().enter();
+			if (isPressed) {
+				state.noteOn(midiChannel, midiKey, velocity);
+				midiKeysPressed.getReference(midiKey)++;
+			} else {
+				midiKeysPressed.getReference(midiKey) = jmax(0,midiKeysPressed[midiKey]-1);
+				if (midiKeysPressed[midiKey] == 0)
+					state.noteOff(midiChannel, midiKey, velocity);
+			}
+			midiKeysPressed.getLock().exit();
+			keycodeStates.setBit(jKey, isPressed);
+		}
 	}
 	return true;
 }
 
-void ChromaKeyboard::focusLost (FocusChangeType)
+void ChromaKeyboard::focusLost(FocusChangeType cause)
 {
+	resetAnyKeysInUse();
+}
+
+void ChromaKeyboard::focusGained(FocusChangeType cause) {
 	resetAnyKeysInUse();
 }
 
@@ -433,11 +496,11 @@ void ChromaKeyboard::timerCallback()
 	if (shouldCheckState) {
 		shouldCheckState = false;
 		for (int jKey = rangeStart; jKey <= rangeEnd; jKey++) {
-			bool isOn = state.isNoteOnForChannels (midiInChannelMask, jKey);
+			bool isOn = state.isNoteOnForChannels(midiInChannelMask, jKey);
 
 			if (keysCurrentlyShownPressed[jKey] != isOn) {
 				keysCurrentlyShownPressed.setBit(jKey, isOn);
-					repaintKey(jKey);
+				repaintKey(jKey);
 			}
 		}
 	}
@@ -447,17 +510,7 @@ void ChromaKeyboard::timerCallback()
  * MidiKeyboardState::Listener
  */
 
-void ChromaKeyboard::handleNoteOn (
-	MidiKeyboardState*,
-	int midiChan,
-	int midiNoteNumber,
-	float v
-)
-{
-	shouldCheckState = true;
-}
-
-void ChromaKeyboard::handleNoteOff (
+void ChromaKeyboard::handleNoteOn(
 	MidiKeyboardState*,
 	int midiChan,
 	int midiNoteNumber,
@@ -466,7 +519,16 @@ void ChromaKeyboard::handleNoteOff (
 	shouldCheckState = true;
 }
 
-void ChromaKeyboard::drawKey (
+void ChromaKeyboard::handleNoteOff(
+	MidiKeyboardState*,
+	int midiChan,
+	int midiNoteNumber,
+	float v )
+{
+	shouldCheckState = true;
+}
+
+void ChromaKeyboard::drawKey(
 	int midiKeyNumber,
 	Graphics& g,
 	Rectangle<float> area,
@@ -479,41 +541,41 @@ void ChromaKeyboard::drawKey (
 	auto c = keyColour;
 
 	if (isOver)
-		c = c.overlaidWith(Colour(0x55FFFFFF));
+		c = c.overlaidWith(Colour(0x55000000));
 	if (isDown)
-		c = c.overlaidWith(Colour(0x77FFFFFF));
+		c = c.overlaidWith(Colour(0x77000000));
 
-	g.setColour (c);
-	g.fillRect (area);
+	g.setColour(c);
+	g.fillRect(area);
 
-	auto text = getNoteText (midiKeyNumber);
+	auto text = getNoteText(midiKeyNumber);
 
 	if (text.isNotEmpty()) {
-		auto fontHeight = jmin (12.0f, keyWidth * 0.9f);
+		auto fontHeight = jmin(12.0f, keyWidth * 0.9f);
 
-		g.setColour (textColour);
-		g.setFont (Font (fontHeight).withHorizontalScale (0.8f));
+		g.setColour(textColour);
+		g.setFont(Font(fontHeight).withHorizontalScale (0.8f));
 
 		switch (orientation) {
 			case horizontal:
 				g.drawText(
 					text,
 					area.withTrimmedLeft(1.0f).withTrimmedBottom(2.0f),
-					Justification::centredBottom,
+					Justification::topLeft,
 					false );
 				break;
 			case verticalFacingLeft:
 				g.drawText(
 					text,
 					area.reduced(2.0f),
-					Justification::centredLeft,
+					Justification::topRight,
 					false );
 				break;
 			case verticalFacingRight:
 				g.drawText(
 					text,
 					area.reduced(2.0f),
-					Justification::centredRight,
+					Justification::bottomLeft,
 					false );
 				break;
 			default:
@@ -557,7 +619,7 @@ void ChromaKeyboard::drawKey (
 	}
 }
 
-String ChromaKeyboard::getNoteText (int midiNoteNumber)
+String ChromaKeyboard::getNoteText(int midiNoteNumber)
 {
 	auto octave = midiNoteNumber / octaveSize;
 	if (midiNoteNumber % octaveSize == 0)
@@ -566,7 +628,7 @@ String ChromaKeyboard::getNoteText (int midiNoteNumber)
 	return {};
 }
 
-void ChromaKeyboard::drawUpDownButton (
+void ChromaKeyboard::drawScrollButton(
 	Graphics& g,
 	int w,
 	int h,
@@ -574,7 +636,7 @@ void ChromaKeyboard::drawUpDownButton (
 	bool isButtonPressed,
 	bool movesOctavesUp )
 {
-	g.fillAll (findColour (upDownButtonBackgroundColourId));
+	g.fillAll(Colour(0xffD3D3D3));
 
 	float angle = 0;
 	switch (orientation) {
@@ -596,32 +658,35 @@ void ChromaKeyboard::drawUpDownButton (
 
 	Path path;
 	path.addTriangle(0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 0.5f);
-	path.applyTransform(AffineTransform::rotation (tau * angle, 0.5f, 0.5f));
+	path.applyTransform(AffineTransform::rotation(tau * angle, 0.5f, 0.5f));
 
-	g.setColour(findColour(upDownButtonArrowColourId).withAlpha(
+	g.setColour(Colour(0xff272727).withAlpha(
 		isButtonPressed
 		? 1.0f : (
 			isMouseOver
 			? 0.6f : 0.4f
 			)
 		));
-	g.fillPath(path, path.getTransformToScaleToFit (1.0f, 1.0f, w - 2.0f, h - 2.0f, true));
+	g.fillPath(path, path.getTransformToScaleToFit(1.0f, 1.0f, w - 2.0f, h - 2.0f, true));
 }
 
-bool ChromaKeyboard::mouseDownOnKey (int midiNoteNumber, const MouseEvent& e)
+/*
+ * 3 callback functions
+ */
+bool ChromaKeyboard::mouseDownOnKey(int midiNoteNumber, const MouseEvent& e)
 {
 	return true;
 }
 
-bool ChromaKeyboard::mouseDraggedToKey (int midiNoteNumber, const MouseEvent& e)
+bool ChromaKeyboard::mouseDraggedToKey(int midiNoteNumber, const MouseEvent& e)
 {
 	return true;
 }
 
-void ChromaKeyboard::mouseUpOnKey (int midiNoteNumber, const MouseEvent& e)
+void ChromaKeyboard::mouseUpOnKey(int midiNoteNumber, const MouseEvent& e)
 { }
 
-Range<float> ChromaKeyboard::getKeyPosition (int midiNoteNumber, float targetKeyWidth) const
+Range<float> ChromaKeyboard::getKeyPosition(int midiNoteNumber, float targetKeyWidth) const
 {
 	jassert (midiNoteNumber >= 0 && midiNoteNumber < 128);
 
@@ -632,7 +697,7 @@ Range<float> ChromaKeyboard::getKeyPosition (int midiNoteNumber, float targetKey
 	return { start, start + targetKeyWidth };
 }
 
-Rectangle<float> ChromaKeyboard::getRectangleForKey (int midiNoteNumber) const
+Rectangle<float> ChromaKeyboard::getRectangleForKey(int midiNoteNumber) const
 {
 	jassert (midiNoteNumber >= rangeStart && midiNoteNumber <= rangeEnd);
 
@@ -641,11 +706,11 @@ Rectangle<float> ChromaKeyboard::getRectangleForKey (int midiNoteNumber) const
 	auto w = pos.getLength();
 	switch (orientation) {
 		case horizontal:
-			return {x, 0, w, (float) getHeight()};
+			return {x, optionBarHeight, w, (float) getHeight()};
 		case verticalFacingLeft:
-			return {0, x, (float) getWidth(), w};
+			return {0, x, (float) getWidth()-optionBarHeight, w};
 		case verticalFacingRight:
-			return {0, getHeight() - x - w, (float) getWidth(), w};
+			return {optionBarHeight, getHeight() - x - w, (float) getWidth(), w};
 		default:
 			jassertfalse;
 			break;
@@ -669,14 +734,14 @@ Colour ChromaKeyboard::getNoteColour(int note, int base)
 	return Colours::black;
 }
 
-Range<float> ChromaKeyboard::getKeyPos (int midiNoteNumber) const
+Range<float> ChromaKeyboard::getKeyPos(int midiNoteNumber) const
 {
 	return getKeyPosition(midiNoteNumber, keyWidth)
 		- xOffset
 		- getKeyPosition(rangeStart, keyWidth).getStart();
 }
 
-int ChromaKeyboard::xyToNote (Point<float> pos, float& mousePositionVelocity)
+int ChromaKeyboard::xyToNote(Point<float> pos, float& mousePositionVelocity)
 {
 	if (! reallyContains (pos.toInt(), false))
 		return -1;
@@ -692,12 +757,12 @@ int ChromaKeyboard::xyToNote (Point<float> pos, float& mousePositionVelocity)
 	return remappedXYToNote (p + Point<float> (xOffset, 0), mousePositionVelocity);
 }
 
-int ChromaKeyboard::remappedXYToNote (Point<float> pos, float& mousePositionVelocity) const
+int ChromaKeyboard::remappedXYToNote(Point<float> pos, float& mousePositionVelocity) const
 {
 	for (int note = rangeStart; note <= rangeEnd; note++) {
-		if (getKeyPos (note).contains (pos.x - xOffset)) {
-			auto noteLength = (orientation == horizontal) ? getHeight() : getWidth();
-			mousePositionVelocity = jmax(0.0f, pos.y/noteLength);
+		if (getKeyPos(note).contains(pos.x - xOffset)) {
+			auto noteLength = ((orientation == horizontal) ? getHeight() : getWidth()) - optionBarHeight;
+			mousePositionVelocity = jmax(0.0f, (pos.y - optionBarHeight)/noteLength);
 			return note;
 		}
 	}
@@ -707,92 +772,90 @@ int ChromaKeyboard::remappedXYToNote (Point<float> pos, float& mousePositionVelo
 
 void ChromaKeyboard::resetAnyKeysInUse()
 {
+	midiKeysPressed.getLock().enter();
 	for (int i = 128; --i >= 0;)
-		if (midiKeysPressed[i])
-			state.noteOff (midiChannel, i, 0.0f);
-	midiKeysPressed.clear();
-
-	for (int i = mouseDownNotes.size(); --i >= 0;) {
-		auto noteDown = mouseDownNotes.getUnchecked(i);
-		if (noteDown >= 0) {
-			state.noteOff (midiChannel, noteDown, 0.0f);
-			mouseDownNotes.set (i, -1);
+		if (midiKeysPressed[i]) {
+			state.noteOff(midiChannel, i, 0.0f);
+			midiKeysPressed.set(i, 0);
 		}
-		mouseOverNotes.set (i, -1);
+	midiKeysPressed.getLock().exit();
+
+	if (keyClicked >= 0) {
+		state.noteOff(midiChannel, keyClicked, 0.0f);
+		keyClicked = -1;
 	}
+	keyHovered -1;
 }
 
-void ChromaKeyboard::updateNoteUnderMouse (Point<float> pos, bool isDown, int fingerNum)
+void ChromaKeyboard::updateNoteUnderMouse(Point<float> pos, bool isDown)
 {
 	float mousePositionVelocity = 0.0f;
-	auto newNote = xyToNote (pos, mousePositionVelocity);
-	auto oldNote = mouseOverNotes.getUnchecked (fingerNum);
-	auto oldNoteDown = mouseDownNotes.getUnchecked (fingerNum);
-	auto eventVelocity = useMousePositionForVelocity ? mousePositionVelocity * velocity : velocity;
+	auto newKey = xyToNote(pos, mousePositionVelocity);
+	auto eventVelocity = useMousePositionForVelocity ? mousePositionVelocity*velocity : velocity;
 
-	if (oldNote != newNote) {
-			repaintKey (oldNote);
-			repaintKey (newNote);
-		mouseOverNotes.set (fingerNum, newNote);
+	if (keyHovered != newKey) {
+		repaintKey(keyHovered);
+		repaintKey(newKey);
+		keyHovered = newKey;
 	}
 
 	if (isDown) {
-		if (newNote != oldNoteDown) {
-			if (oldNoteDown >= 0) {
-				mouseDownNotes.set (fingerNum, -1);
-				if (! mouseDownNotes.contains (oldNoteDown))
-					state.noteOff (midiChannel, oldNoteDown, eventVelocity);
-			}
-
-			if (newNote >= 0 && ! mouseDownNotes.contains (newNote)) {
-				state.noteOn (midiChannel, newNote, eventVelocity);
-				mouseDownNotes.set (fingerNum, newNote);
-			}
+		if (newKey != keyClicked) {
+			if (keyClicked >= 0)
+				state.noteOff(midiChannel, keyClicked, eventVelocity);
+			if (newKey >= 0)
+				state.noteOn(midiChannel, newKey, eventVelocity);
+			keyClicked = jmax(newKey, -1);
 		}
 	}
-	else if (oldNoteDown >= 0) {
-		mouseDownNotes.set (fingerNum, -1);
-		if (! mouseDownNotes.contains (oldNoteDown))
-			state.noteOff (midiChannel, oldNoteDown, eventVelocity);
+	else if (keyClicked >= 0) {
+		state.noteOff(midiChannel, keyClicked, eventVelocity);
+		keyClicked = -1;
 	}
 }
 
-void ChromaKeyboard::updateNoteUnderMouse (const MouseEvent& e, bool isDown)
-{
-	updateNoteUnderMouse (e.getEventRelativeTo (this).position, isDown, e.source.getIndex());
-}
-
-void ChromaKeyboard::repaintKey (int midiNoteNumber)
+void ChromaKeyboard::repaintKey(int midiNoteNumber)
 {
 	if (midiNoteNumber >= rangeStart && midiNoteNumber <= rangeEnd)
-		repaint (getRectangleForKey (midiNoteNumber).getSmallestIntegerContainer());
+		repaint(getRectangleForKey(midiNoteNumber).getSmallestIntegerContainer());
 }
 
-void ChromaKeyboard::setLowestVisibleKeyFloat (float noteNumber)
+void ChromaKeyboard::setLowestVisibleKeyFloat(float keyNumber)
 {
-	noteNumber = jlimit ((float) rangeStart, (float) rangeEnd, noteNumber);
-	if (noteNumber != firstKey) {
-		bool hasMoved = (int)firstKey != (int)noteNumber;
-		firstKey = noteNumber;
+	keyNumber = jlimit ((float) rangeStart, (float) rangeEnd, keyNumber);
+	if (keyNumber != lowestVisibleKey) {
+		bool hasMoved = (int)lowestVisibleKey != (int)keyNumber;
+		lowestVisibleKey = keyNumber;
 		if (hasMoved)
 			sendChangeMessage();
-
 		resized();
 	}
 }
 
-int ChromaKeyboard::findKeycodeChanged() {
-	char keycode = '\0';
-	HashMap<char, bool>::Iterator iter = keycodeState.begin();
-	do {
-		if (iter.getValue() != KeyPress::isKeyCurrentlyDown(iter.getKey())) {
-			keycode = iter.getKey ();
-			break;
-		}
-	} while (iter.next());
-	if (keycode) {
-		bool& entry = keycodeState.getReference(keycode);
-		entry = !entry;
+void ChromaKeyboard::resetKeycodeStates() {
+	for (int jKey = 0; jKey < 256; jKey++) {
+		keycodeStates.setBit(jKey, KeyPress::isKeyCurrentlyDown(jKey));
 	}
-	return keycode;
+}
+
+void ChromaKeyboard::setOrganLayout() {
+	// this only really makes sense if the octave size is 12,
+	// but I've tried to make it work roughly logically
+	// even if that isn't the case
+	clearKeyMappings();
+	int x = 0xdead;	// dead keys don't get mapped
+	int blackKeys[7] = { x, 1, 3, x, 6, 8, 10 };
+	int whiteKeys[7] = { 0, 2, 4, 5, 7, 9, 11 };	// an octave is of course *7* white keys
+	for (int jRow = 0; jRow < 4; jRow++) {
+		for (int jCol = 0; jCol < 10; jCol++) {
+			char keycode = kbdString[jRow*10 + jCol];
+			int index = (jRow/2 * 10 + jCol);	// index if the arrays weren't cyclic
+			int offset = (jRow % 2 == 0 ? whiteKeys : blackKeys)[index % 7];
+			if (offset == 0xdead)
+				continue;
+			int midiKey = keyMapBase + offset + (index/7)*12;
+			mapKeycodeToMidiKey(keycode, midiKey);
+		}
+	}
+	currentLayout = organ;
 }
