@@ -14,7 +14,19 @@ public:
         synthAudioSource(keyboardState),
         keyboardComponent(keyboardState, ChromaKeyboard::horizontal)
     {
-        addAndMakeVisible(keyboardComponent);
+		addAndMakeVisible(keyboardComponent);
+		addAndMakeVisible(octaveSizeInput);
+		octaveSizeInput.setEditable(true);
+		octaveSizeInput.setText(String(octaveSize), sendNotificationAsync);
+		octaveSizeInput.onEditorShow = [this] {
+		  octaveSizeInput.getCurrentTextEditor()->setInputRestrictions(2, "0123456789");
+		};
+		octaveSizeInput.onEditorHide = [this] {
+		  octaveSizeInputChanged();
+		};
+		addAndMakeVisible(octaveSizeLabel);
+		octaveSizeLabel.attachToComponent(&octaveSizeInput, true);
+
         setAudioChannels(0, 2);
 
         setSize (800, 100);
@@ -26,7 +38,19 @@ public:
         shutdownAudio();
     }
 
-    /* AudioSource */
+	void octaveSizeInputChanged() {
+		BigInteger parsed; parsed.parseString(octaveSizeInput.getText(), 10);
+		if (0 < parsed.toInt64()) {
+			octaveSize = parsed.toInt64();
+			keyboardComponent.setOctaveSize(octaveSize);
+			synthAudioSource.setOctaveSize(octaveSize);
+		}
+		octaveSizeInput.setText(String(octaveSize), dontSendNotification);
+	}
+
+    /*
+     * AudioSource
+     */
 
     void prepareToPlay (int samplesPerBlockExpected, double sampleRate) override
     {
@@ -43,7 +67,9 @@ public:
         synthAudioSource.releaseResources();
     }
 
-    /* Component */
+    /*
+     * Component
+     */
 
     void paint (Graphics& g) override
     {
@@ -52,8 +78,19 @@ public:
 
     void resized() override
     {
-        keyboardComponent.setBounds (0, 0, getWidth(), getHeight());
+        keyboardComponent.setBounds(
+        	0,
+        	0,
+        	getWidth(),
+        	getHeight());
+
+		octaveSizeInput.setBounds(256, 0, 64, keyboardComponent.optionBarHeight);
     }
+
+    void focusGained(FocusChangeType cause) override
+	{
+    	keyboardComponent.grabKeyboardFocus();
+	}
 
 private:
 
@@ -61,13 +98,19 @@ private:
 
     void timerCallback() override
     {
-        keyboardComponent.grabKeyboardFocus();
-        stopTimer();
+    	if (keyboardComponent.isShowing()) {
+			keyboardComponent.grabKeyboardFocus();
+			stopTimer();
+    	}
     }
 
-    MidiKeyboardState keyboardState;
-    SynthAudioSource synthAudioSource;
-    ChromaKeyboard keyboardComponent;
+	MidiKeyboardState keyboardState;
+	SynthAudioSource synthAudioSource;
+	ChromaKeyboard keyboardComponent;
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MainComponent)
+	int octaveSize = 12;
+	Label octaveSizeLabel { {}, "base:"};
+	Label octaveSizeInput;
+
+	JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MainComponent)
 };

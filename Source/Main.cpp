@@ -15,7 +15,7 @@ public:
 
     void initialise (const String& commandLine) override
     {
-        mainWindow.reset (new MainWindow (getApplicationName()));
+        mainWindow.reset(new MainWindow(getApplicationName()));
     }
 
     void shutdown() override
@@ -30,7 +30,7 @@ public:
         quit();
     }
 
-    void anotherInstanceStarted (const String& commandLine) override {}
+    void anotherInstanceStarted(const String& commandLine) override {}
 
     /*
         This class implements the desktop window that contains an instance of
@@ -40,18 +40,20 @@ public:
         public DocumentWindow
     {
     public:
-        MainWindow (String name) :
-            DocumentWindow (
+        MainWindow(String name) :
+            DocumentWindow(
                 name,
                 Desktop::getInstance().getDefaultLookAndFeel().findColour(ResizableWindow::backgroundColourId),
                 DocumentWindow::allButtons
             )
         {
-            setUsingNativeTitleBar (true);
-            setContentOwned (new MainComponent(), true);
-            setResizable (true, true);
-            centreWithSize (getWidth(), getHeight());
-            setVisible (true);
+            setUsingNativeTitleBar(true);
+            setContentOwned(new MainComponent(), true);
+            setResizable(true, true);
+            setDraggable(false);
+            setResizeLimits(250, windowHeight, 2048, windowHeight);
+            centreWithSize(getWidth(), getHeight());
+            setVisible(true);
         }
 
         void closeButtonPressed() override
@@ -60,7 +62,9 @@ public:
         }
 
     private:
-        JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (MainWindow)
+    	const int windowHeight = 100;
+
+        JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR(MainWindow)
     };
 
 private:
@@ -68,4 +72,4 @@ private:
 };
 
 // This macro generates the main() routine that launches the app.
-START_JUCE_APPLICATION (kbdApplication)
+START_JUCE_APPLICATION(kbdApplication)

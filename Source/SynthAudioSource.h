@@ -6,35 +6,37 @@
 
 
 class SynthAudioSource :
-    public AudioSource
-{
+    public AudioSource {
 public:
-    SynthAudioSource (MidiKeyboardState& keyState)
-        : keyboardState (keyState)
-    {
-        for (auto i = 0; i < 4; i++) {
-            synth.addVoice(new SineWaveVoice());
-        }
+	SynthAudioSource(MidiKeyboardState& keyState)
+		:keyboardState(keyState)
+	{
+		for (auto jVoice = 0; jVoice < 8; jVoice++)
+			synth.addVoice(new SineWaveVoice(12));
 
-        synth.addSound(new SineWaveSound());
-    }
+		synth.addSound(new SineWaveSound());
+	}
 
-    void setUsingSineWaveSound()
-    {
-        synth.clearSounds();
-    }
+	void setUsingSineWaveSound()
+	{
+		synth.clearSounds();
+	}
 
-    void prepareToPlay (int /*samplesPerBlockExpected*/, double sampleRate) override
-    {
-        synth.setCurrentPlaybackSampleRate(sampleRate);
-    }
+	void setOctaveSize(int newSize) {
+		synth.clearVoices();
+		for (auto jVoice = 0; jVoice < 8; jVoice++)
+			synth.addVoice(new SineWaveVoice(newSize));
+	}
 
-    void releaseResources() override
-    {
+	void prepareToPlay(int /*samplesPerBlockExpected*/, double sampleRate) override
+	{
+		synth.setCurrentPlaybackSampleRate(sampleRate);
+	}
 
-    }
+	void releaseResources() override
+	{ }
 
-    void getNextAudioBlock (const AudioSourceChannelInfo& bufferToFill) override
+    void getNextAudioBlock(const AudioSourceChannelInfo& bufferToFill) override
     {
         bufferToFill.clearActiveBufferRegion();
 
@@ -46,7 +48,7 @@ public:
             true
         );
 
-        synth.renderNextBlock (
+        synth.renderNextBlock(
             *bufferToFill.buffer,
             incomingMidi,
             bufferToFill.startSample,
