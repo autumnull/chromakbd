@@ -356,7 +356,7 @@ void ChromaKeyboard::resized()
 
 			float mousePositionVelocity;
 			auto spaceAvailable = w;
-			auto lastStartKey = remappedXYToNote({ endOfLastKey - spaceAvailable, 0 }, mousePositionVelocity) + 1;
+			auto lastStartKey = remappedXYToNote({ endOfLastKey - spaceAvailable, optionBarHeight+1 }, mousePositionVelocity) + 1;
 
 			if (lastStartKey >= 0 && ((int) lowestVisibleKey) > lastStartKey) {
 				lowestVisibleKey = (float) jlimit(rangeStart, rangeEnd, lastStartKey);
@@ -743,7 +743,7 @@ Range<float> ChromaKeyboard::getKeyPos(int midiNoteNumber) const
 
 int ChromaKeyboard::xyToNote(Point<float> pos, float& mousePositionVelocity)
 {
-	if (! reallyContains (pos.toInt(), false))
+	if (! reallyContains(pos.toInt(), false))
 		return -1;
 
 	auto p = pos;
@@ -754,11 +754,14 @@ int ChromaKeyboard::xyToNote(Point<float> pos, float& mousePositionVelocity)
 		else
 			p = { getHeight() - p.x, p.y };
 	}
-	return remappedXYToNote (p + Point<float> (xOffset, 0), mousePositionVelocity);
+	return remappedXYToNote(p + Point<float> (xOffset, 0), mousePositionVelocity);
 }
 
 int ChromaKeyboard::remappedXYToNote(Point<float> pos, float& mousePositionVelocity) const
 {
+	if (pos.y <= optionBarHeight)
+		return -1;
+
 	for (int note = rangeStart; note <= rangeEnd; note++) {
 		if (getKeyPos(note).contains(pos.x - xOffset)) {
 			auto noteLength = ((orientation == horizontal) ? getHeight() : getWidth()) - optionBarHeight;
