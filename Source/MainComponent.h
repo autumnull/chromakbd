@@ -15,6 +15,7 @@ public:
         keyboardComponent(keyboardState, ChromaKeyboard::horizontal)
     {
 		addAndMakeVisible(keyboardComponent);
+		keyboardComponent.setLayout(ChromaKeyboard::guitar);
 		addAndMakeVisible(octaveSizeInput);
 		octaveSizeInput.setEditable(true);
 		octaveSizeInput.setText(String(octaveSize), sendNotificationAsync);
