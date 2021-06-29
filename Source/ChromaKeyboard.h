@@ -174,8 +174,8 @@ private:
 	std::unique_ptr<Button> scrollDown, scrollUp;
 
 	int keyHovered = -1, keyClicked = -1; // -1 indicates no key
-	HashMap<char, int> keycodeToKey;	// maps keycodes to midi keys
-	HashMap<int, int> midiKeysPressed; 		// midi keys to number of pressers
+	Array<int> keycodeToKey;	// maps keycodes to midi keys
+	Array<int> midiKeysPressed; 		// midi keys to number of pressers
 	BigInteger keycodeStates; // keeps track of physical keyboard state
 	BigInteger keysCurrentlyShownPressed;
 

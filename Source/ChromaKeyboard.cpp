@@ -61,6 +61,8 @@ ChromaKeyboard::ChromaKeyboard(MidiKeyboardState& s, ChromaKeyboard::Orientation
 	addChildComponent(scrollDown.get());
 	addChildComponent(scrollUp.get());
 
+	midiKeysPressed.insertMultiple(0, 0, 256);
+	keycodeToKey.insertMultiple(0, -1, 256);
 	resetKeycodeStates();
 
 	colourChanged();
@@ -186,7 +188,7 @@ int ChromaKeyboard::getNoteAtPosition(Point<float> position)
 void ChromaKeyboard::clearKeyMappings()
 {
 	resetAnyKeysInUse();
-	keycodeToKey.clear();
+	keycodeToKey.fill(-1);
 }
 
 void ChromaKeyboard::mapKeycodeToMidiKey(int keycode, int midiKey)
@@ -199,7 +201,7 @@ void ChromaKeyboard::mapKeycodeToMidiKey(int keycode, int midiKey)
 
 void ChromaKeyboard::unmapKeycode(int keycode)
 {
-	keycodeToKey.remove(keycode);
+	keycodeToKey.set(keycode, -1);
 }
 
 void ChromaKeyboard::setKeyMapBase(int newBaseNote)
@@ -450,20 +452,19 @@ bool ChromaKeyboard::keyPressed(const KeyPress& keypress)
 	} else if (keycode == KeyPress::pageDownKey) {
 		shiftKeyMapBase(-octaveSize);
 	}
-	return keycodeToKey.contains(keycode);
+	return keycodeToKey[keycode] == -1;
 }
 
 // called when a keycode is pressed, held or released
 bool ChromaKeyboard::keyStateChanged(bool)
 {
-	for (int jKey = 0; jKey < 256; jKey++) {
-		bool isPressed = KeyPress::isKeyCurrentlyDown(jKey);
-		if (keycodeStates[jKey] != isPressed &&
-			keycodeToKey.contains(jKey)
-		) {
-			int midiKey = keycodeToKey.getReference(jKey);
-			midiKeysPressed.getLock().enter();
+	for (char keycode: kbdString) {
+		bool isPressed = KeyPress::isKeyCurrentlyDown(keycode);
+		if (keycodeStates[keycode] != isPressed)
+		{
+			int midiKey = keycodeToKey[keycode];
 			if (isPressed) {
+				// always add note on when key re-pressed
 				state.noteOn(midiChannel, midiKey, velocity);
 				midiKeysPressed.getReference(midiKey)++;
 			} else {
@@ -471,8 +472,7 @@ bool ChromaKeyboard::keyStateChanged(bool)
 				if (midiKeysPressed[midiKey] == 0)
 					state.noteOff(midiChannel, midiKey, velocity);
 			}
-			midiKeysPressed.getLock().exit();
-			keycodeStates.setBit(jKey, isPressed);
+			keycodeStates.setBit(keycode, isPressed);
 		}
 	}
 	return true;
@@ -481,10 +481,11 @@ bool ChromaKeyboard::keyStateChanged(bool)
 void ChromaKeyboard::focusLost(FocusChangeType cause)
 {
 	resetAnyKeysInUse();
+	repaint();
 }
 
 void ChromaKeyboard::focusGained(FocusChangeType cause) {
-	resetAnyKeysInUse();
+	repaint();
 }
 
 /*
@@ -787,7 +788,7 @@ void ChromaKeyboard::resetAnyKeysInUse()
 		state.noteOff(midiChannel, keyClicked, 0.0f);
 		keyClicked = -1;
 	}
-	keyHovered -1;
+	keyHovered = -1;
 }
 
 void ChromaKeyboard::updateNoteUnderMouse(Point<float> pos, bool isDown)
