@@ -5,4 +5,4 @@
 
 */
 
-#include <juce_audio_formats/juce_audio_formats.mm>
+#include <juce_audio_plugin_client/juce_audio_plugin_client_AU_2.mm>
